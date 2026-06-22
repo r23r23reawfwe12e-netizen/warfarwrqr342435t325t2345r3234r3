@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 generator client {
   provider = "prisma-client-js"
 }
@@ -392,3 +393,399 @@ model StreakReward {
   titleKey    String?
   achievementKey String?
 }
+=======
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Language {
+  EN
+  UA
+  RU
+}
+
+enum Attribute {
+  STRENGTH
+  INTELLIGENCE
+  CREATIVITY
+  FINANCE
+  SOCIAL
+  DISCIPLINE
+}
+
+enum TaskStatus {
+  CREATED
+  ACTIVE
+  COMPLETED
+  EXPIRED
+  CANCELLED
+}
+
+enum ProofType {
+  NONE
+  PHOTO
+  VIDEO
+  FRIEND
+}
+
+enum ItemRarity {
+  COMMON
+  RARE
+  EPIC
+  LEGENDARY
+  MYTHIC
+}
+
+enum ItemType {
+  FRAME
+  BACKGROUND
+  TITLE
+  BADGE
+  PET
+  ANIMATION
+  CASE
+}
+
+enum DuelType {
+  MOST_XP
+  MOST_TASKS
+  MOST_WORKOUT
+  MOST_READING
+  FIRST_OBJECTIVE
+}
+
+enum DuelStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  DECLINED
+  CANCELLED
+  EXPIRED
+}
+
+enum DuelStakeType {
+  XP
+  SOUL_COINS
+  COSMETIC
+  TITLE
+}
+
+enum SupporterRank {
+  NONE
+  SUPPORTER
+  ELITE
+  LEGEND
+}
+
+enum LeaderboardPeriod {
+  GLOBAL
+  WEEKLY
+  MONTHLY
+  SEASONAL
+}
+
+model User {
+  id                String        @id @default(cuid())
+  telegramId        BigInt        @unique
+  username          String?
+  displayName       String
+  language          Language      @default(EN)
+  registeredAt      DateTime      @default(now())
+  onboardingDone    Boolean       @default(false)
+  tutorialDone      Boolean       @default(false)
+
+  level             Int           @default(1)
+  totalXp           Int           @default(0)
+  seasonalXp        Int           @default(0)
+  soulCoins         Int           @default(0)
+
+  currentRank       String        @default("Bronze")
+  eloRating         Int           @default(1000)
+
+  currentStreak     Int           @default(0)
+  longestStreak     Int           @default(0)
+  lastActiveDate    DateTime?
+
+  trustScore        Int           @default(0)
+  supporterRank     SupporterRank @default(NONE)
+  isPremium         Boolean       @default(false)
+
+  equippedPetId     String?
+  equippedTitleId   String?
+  equippedFrameId   String?
+  equippedBgId      String?
+
+  equippedPet       Item?         @relation("EquippedPet", fields: [equippedPetId], references: [id])
+  equippedTitle     Item?         @relation("EquippedTitle", fields: [equippedTitleId], references: [id])
+  equippedFrame     Item?         @relation("EquippedFrame", fields: [equippedFrameId], references: [id])
+  equippedBg        Item?         @relation("EquippedBg", fields: [equippedBgId], references: [id])
+
+  attributes        UserAttribute[]
+  tasks             Task[]
+  achievements      UserAchievement[]
+  inventory         InventoryItem[]
+  partyMemberships  PartyMember[]
+  ledParties        Party[]       @relation("PartyLeader")
+  duelParticipations DuelParticipant[]
+  createdDuels      Duel[]        @relation("DuelCreator")
+  validations       TaskValidation[] @relation("Validator")
+  settings          UserSettings?
+
+  @@index([eloRating])
+  @@index([totalXp])
+  @@index([level])
+  @@index([currentStreak])
+  @@index([seasonalXp])
+}
+
+model UserAttribute {
+  id        String    @id @default(cuid())
+  userId    String
+  attribute Attribute
+  xp        Int       @default(0)
+  level     Int       @default(1)
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, attribute])
+}
+
+model UserSettings {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  notifications       Boolean  @default(true)
+  duelInvites         Boolean  @default(true)
+  partyInvites        Boolean  @default(true)
+  showProfilePublic   Boolean  @default(true)
+  proofRequired       Boolean  @default(false)
+
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Task {
+  id              String      @id @default(cuid())
+  userId          String
+  title           String
+  description     String?
+  attribute       Attribute
+  status          TaskStatus  @default(CREATED)
+  xpReward        Int         @default(10)
+  attributeXp     Int         @default(10)
+  proofType       ProofType   @default(NONE)
+  proofFileId     String?
+  validatedById   String?
+  expiresAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  validations     TaskValidation[]
+
+  @@index([userId, status])
+}
+
+model TaskValidation {
+  id          String   @id @default(cuid())
+  taskId      String
+  validatorId String
+  approved    Boolean
+  createdAt   DateTime @default(now())
+
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  validator   User     @relation("Validator", fields: [validatorId], references: [id])
+
+  @@unique([taskId, validatorId])
+}
+
+model Party {
+  id          String        @id @default(cuid())
+  partyCode   String        @unique
+  name        String
+  leaderId    String
+  partyXp     Int           @default(0)
+  createdAt   DateTime      @default(now())
+
+  leader      User          @relation("PartyLeader", fields: [leaderId], references: [id])
+  members     PartyMember[]
+
+  @@index([partyCode])
+}
+
+model PartyMember {
+  id        String   @id @default(cuid())
+  partyId   String
+  userId    String
+  joinedAt  DateTime @default(now())
+  activeToday Boolean @default(false)
+
+  party     Party    @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([partyId, userId])
+  @@index([userId])
+}
+
+model Duel {
+  id            String        @id @default(cuid())
+  creatorId     String
+  type          DuelType
+  status        DuelStatus    @default(PENDING)
+  durationHours Int
+  stakeType     DuelStakeType
+  stakeAmount   Int           @default(0)
+  stakeItemId   String?
+  objective     String?
+  startedAt     DateTime?
+  endsAt        DateTime?
+  winnerId      String?
+  isRanked      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+
+  creator       User          @relation("DuelCreator", fields: [creatorId], references: [id])
+  participants  DuelParticipant[]
+
+  @@index([status])
+}
+
+model DuelParticipant {
+  id          String   @id @default(cuid())
+  duelId      String
+  userId      String
+  accepted    Boolean  @default(false)
+  progressXp  Int      @default(0)
+  progressTasks Int    @default(0)
+  progressValue Int    @default(0)
+  eloChange   Int      @default(0)
+
+  duel        Duel     @relation(fields: [duelId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([duelId, userId])
+}
+
+model Guild {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  weeklyXp    Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model Achievement {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  nameKey     String
+  descriptionKey String
+  requirement Int
+  attribute   Attribute?
+  xpReward    Int      @default(100)
+  coinReward  Int      @default(50)
+  caseReward  Boolean  @default(false)
+  titleReward String?
+
+  users       UserAchievement[]
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String
+  achievementId String
+  unlockedAt    DateTime @default(now())
+
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement   Achievement  @relation(fields: [achievementId], references: [id])
+
+  @@unique([userId, achievementId])
+}
+
+model Item {
+  id          String     @id @default(cuid())
+  key         String     @unique
+  nameKey     String
+  descriptionKey String
+  type        ItemType
+  rarity      ItemRarity @default(COMMON)
+  price       Int        @default(0)
+  isPremium   Boolean    @default(false)
+  imageEmoji  String     @default("✨")
+
+  inventory   InventoryItem[]
+  equippedAsPet   User[] @relation("EquippedPet")
+  equippedAsTitle User[] @relation("EquippedTitle")
+  equippedAsFrame User[] @relation("EquippedFrame")
+  equippedAsBg    User[] @relation("EquippedBg")
+}
+
+model InventoryItem {
+  id        String   @id @default(cuid())
+  userId    String
+  itemId    String
+  quantity  Int      @default(1)
+  acquiredAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item      Item     @relation(fields: [itemId], references: [id])
+
+  @@unique([userId, itemId])
+}
+
+model CaseDrop {
+  id        String     @id @default(cuid())
+  caseKey   String
+  itemId    String
+  weight    Int
+
+  @@index([caseKey])
+}
+
+model Season {
+  id          Int      @id @default(autoincrement())
+  number      Int      @unique
+  name        String
+  startsAt    DateTime
+  endsAt      DateTime
+  isActive    Boolean  @default(false)
+
+  rewards     SeasonReward[]
+}
+
+model SeasonReward {
+  id          String   @id @default(cuid())
+  seasonId    Int
+  minRank     Int
+  maxRank     Int
+  itemId      String?
+  xpBonus     Int      @default(0)
+  coinBonus   Int      @default(0)
+  titleKey    String?
+
+  season      Season   @relation(fields: [seasonId], references: [id])
+}
+
+model RankingSnapshot {
+  id        String            @id @default(cuid())
+  period    LeaderboardPeriod
+  category  String
+  userId    String
+  score     Int
+  rank      Int
+  snapshotAt DateTime         @default(now())
+
+  @@index([period, category, rank])
+}
+
+model StreakReward {
+  id          String   @id @default(cuid())
+  days        Int      @unique
+  xpReward    Int
+  coinReward  Int
+  titleKey    String?
+  achievementKey String?
+}
+>>>>>>> 3fa0ac1 (upload project)
